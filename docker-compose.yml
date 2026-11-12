@@ -1,0 +1,45 @@
+# Bonus: `docker compose up --build` starts PostgreSQL, the API and the React app.
+#   Web app: http://localhost:8080     API: http://localhost:4000
+# To run only the database (and use npm for the rest):  docker compose up -d db
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: sweety
+      POSTGRES_PASSWORD: sweety
+      POSTGRES_DB: sweety
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sweety -d sweety"]
+      interval: 3s
+      retries: 10
+
+  api:
+    build: ./server
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgres://sweety:sweety@db:5432/sweety
+      JWT_SECRET: change-me-in-real-deployments
+      CLIENT_ORIGIN: http://localhost:8080
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: http://localhost:4000
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
